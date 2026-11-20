@@ -1,0 +1,6 @@
+{
+  "name": "WORLDLY",
+  "description": "Privacy-first social location-sharing Android app with real-time opt-in GPS, interactive map, friends, messaging, and favorite places.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,46 @@
+<resources>
+    <string name="app_name">WORLDLY</string>
+    <string name="tagline">Privacy-first social location radar</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_next">Continue</string>
+    <string name="onboarding_start">Enter WORLDLY</string>
+    <string name="onboarding_title_1">Your Circle, Live on One Radar</string>
+    <string name="onboarding_body_1">See where trusted friends are in real time with exact distance, live status, and saved hangout spots.</string>
+    <string name="onboarding_title_2">Opt-In Privacy by Default</string>
+    <string name="onboarding_body_2">Location sharing starts off. Pause any friend, toggle Ghost Mode in one tap, or stop sharing immediately from anywhere.</string>
+    <string name="onboarding_title_3">Private Chat &amp; Favorite Places</string>
+    <string name="onboarding_body_3">Drop pins in 1-to-1 friend chats, bookmark favorite places, and keep optional location history strictly yours.</string>
+
+    <!-- Auth -->
+    <string name="auth_headline">WORLDLY</string>
+    <string name="auth_subhead">Share your world only with friends you approve.</string>
+    <string name="auth_google_button">Sign in with Google</string>
+    <string name="auth_privacy_note">Location is never collected unless you explicitly turn sharing on. Zero tracking, zero third-party ad SDKs.</string>
+
+    <!-- Navigation -->
+    <string name="nav_map">Home</string>
+    <string name="nav_share">Share</string>
+    <string name="nav_friends">Circle</string>
+    <string name="nav_messages">Chat</string>
+    <string name="nav_places">Places</string>
+    <string name="nav_settings">Profile</string>
+
+    <!-- Foreground Service & Notifications -->
+    <string name="fgs_channel_name">Live Location Sharing</string>
+    <string name="fgs_channel_desc">Persistent notification shown while you are actively sharing your GPS location with accepted friends.</string>
+    <string name="fgs_notif_title">WORLDLY · Live Location Active</string>
+    <string name="fgs_notif_body">Sharing live GPS with accepted friends. Tap Stop to pause immediately.</string>
+    <string name="fgs_stop_action">Stop Sharing</string>
+
+    <string name="alerts_channel_name">Friend &amp; Chat Alerts</string>
+    <string name="alerts_channel_desc">Notifications for new friend requests and private messages.</string>
+
+    <!-- Permissions -->
+    <string name="location_rationale_title">Enable Opt-In Location Sharing?</string>
+    <string name="location_rationale_body">WORLDLY only reads your GPS when you toggle sharing ON. A persistent notification stays visible so you are always in control and can stop sharing in one tap.</string>
+    <string name="location_rationale_confirm">Grant &amp; Share</string>
+    <string name="location_rationale_cancel">Keep Sharing Off</string>
+    <string name="location_denied_msg">Location permission is off. Enable location access in System Settings when you are ready to share.</string>
+</resources>

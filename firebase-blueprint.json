@@ -1,0 +1,247 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private user account profile, PII, and opt-in privacy preferences.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "description": "Private email address" },
+        "displayName": { "type": "string", "description": "User display name" },
+        "handle": { "type": "string", "description": "Unique lowercase handle" },
+        "statusMessage": { "type": "string", "description": "Short user status" },
+        "avatarColorHex": { "type": "string", "description": "Hex color for avatar badge" },
+        "friendCode": { "type": "string", "description": "Shareable alphanumeric friend code" },
+        "sharingEnabled": { "type": "boolean", "description": "Opt-in location sharing toggle" },
+        "batterySharingEnabled": { "type": "boolean", "description": "Opt-in battery sharing toggle" },
+        "historyEnabled": { "type": "boolean", "description": "Opt-in location history toggle" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server update timestamp" }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "handle",
+        "statusMessage",
+        "avatarColorHex",
+        "friendCode",
+        "sharingEnabled",
+        "batterySharingEnabled",
+        "historyEnabled",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PublicProfile": {
+      "title": "PublicProfile",
+      "description": "Non-PII public profile card accessible by UID.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "handle": { "type": "string" },
+        "statusMessage": { "type": "string" },
+        "avatarColorHex": { "type": "string" },
+        "friendCode": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "handle",
+        "statusMessage",
+        "avatarColorHex",
+        "friendCode",
+        "updatedAt"
+      ]
+    },
+    "HandleLookup": {
+      "title": "HandleLookup",
+      "description": "Exact-match handle index to resolve friend searches without list scraping.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "handle": { "type": "string" },
+        "displayName": { "type": "string" },
+        "avatarColorHex": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "handle", "displayName", "avatarColorHex", "updatedAt"]
+    },
+    "FriendCodeLookup": {
+      "title": "FriendCodeLookup",
+      "description": "Exact-match friend code index to resolve friend additions without list scraping.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "friendCode": { "type": "string" },
+        "handle": { "type": "string" },
+        "displayName": { "type": "string" },
+        "avatarColorHex": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "friendCode", "handle", "displayName", "avatarColorHex", "updatedAt"]
+    },
+    "Friendship": {
+      "title": "Friendship",
+      "description": "Mutual friendship and request state between two users.",
+      "type": "object",
+      "properties": {
+        "participantUids": { "type": "array" },
+        "requesterUid": { "type": "string" },
+        "recipientUid": { "type": "string" },
+        "requesterName": { "type": "string" },
+        "requesterHandle": { "type": "string" },
+        "requesterColor": { "type": "string" },
+        "recipientName": { "type": "string" },
+        "recipientHandle": { "type": "string" },
+        "recipientColor": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted"] },
+        "pausedByUids": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "participantUids",
+        "requesterUid",
+        "recipientUid",
+        "requesterName",
+        "requesterHandle",
+        "requesterColor",
+        "recipientName",
+        "recipientHandle",
+        "recipientColor",
+        "status",
+        "pausedByUids",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SharedLocation": {
+      "title": "SharedLocation",
+      "description": "Opt-in real-time GPS location shared exclusively with accepted friends.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "handle": { "type": "string" },
+        "avatarColorHex": { "type": "string" },
+        "sharingActive": { "type": "boolean" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "accuracyMeters": { "type": "number" },
+        "batteryLevel": { "type": "integer" },
+        "charging": { "type": "boolean" },
+        "placeLabel": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "handle",
+        "avatarColorHex",
+        "sharingActive",
+        "latitude",
+        "longitude",
+        "accuracyMeters",
+        "updatedAt"
+      ]
+    },
+    "ChatThread": {
+      "title": "ChatThread",
+      "description": "Private 1-to-1 conversation metadata between accepted friends.",
+      "type": "object",
+      "properties": {
+        "participantUids": { "type": "array" },
+        "lastMessageText": { "type": "string" },
+        "lastSenderUid": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["participantUids", "lastMessageText", "lastSenderUid", "updatedAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Immutable message inside a 1-to-1 friend chat.",
+      "type": "object",
+      "properties": {
+        "participantUids": { "type": "array" },
+        "senderUid": { "type": "string" },
+        "text": { "type": "string" },
+        "sharedLat": { "type": "number" },
+        "sharedLng": { "type": "number" },
+        "sharedPlaceName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["participantUids", "senderUid", "text", "createdAt"]
+    },
+    "LocationHistoryEntry": {
+      "title": "LocationHistoryEntry",
+      "description": "Private user-owned opt-in GPS breadcrumb.",
+      "type": "object",
+      "properties": {
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "accuracyMeters": { "type": "number" },
+        "recordedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["latitude", "longitude", "accuracyMeters", "recordedAt"]
+    },
+    "FavoritePlace": {
+      "title": "FavoritePlace",
+      "description": "User-saved favorite coordinates and place category.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "category": { "type": "string", "enum": ["home", "work", "hangout", "custom"] },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "addressHint": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "category", "latitude", "longitude", "addressHint", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Owner-only private profile and privacy configuration."
+    },
+    "/publicProfiles/{userId}": {
+      "schema": { "$ref": "#/entities/PublicProfile" },
+      "description": "Non-PII public profile card."
+    },
+    "/handleLookup/{handle}": {
+      "schema": { "$ref": "#/entities/HandleLookup" },
+      "description": "Handle-to-userId lookup entry."
+    },
+    "/friendCodeLookup/{code}": {
+      "schema": { "$ref": "#/entities/FriendCodeLookup" },
+      "description": "Friend-code-to-userId lookup entry."
+    },
+    "/friendships/{friendshipId}": {
+      "schema": { "$ref": "#/entities/Friendship" },
+      "description": "Mutual friend requests and accepted friendships."
+    },
+    "/sharedLocations/{userId}": {
+      "schema": { "$ref": "#/entities/SharedLocation" },
+      "description": "Opt-in real-time GPS status readable only by accepted unpaused friends."
+    },
+    "/chats/{chatId}": {
+      "schema": { "$ref": "#/entities/ChatThread" },
+      "description": "Private 1-to-1 chat threads between accepted friends."
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Messages within a 1-to-1 chat."
+    },
+    "/users/{userId}/locationHistory/{entryId}": {
+      "schema": { "$ref": "#/entities/LocationHistoryEntry" },
+      "description": "Private user location history breadcrumbs."
+    },
+    "/users/{userId}/favoritePlaces/{placeId}": {
+      "schema": { "$ref": "#/entities/FavoritePlace" },
+      "description": "Private user favorite places."
+    }
+  }
+}

@@ -1,0 +1,402 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- GLOBAL HELPERS ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function pairId(a, b) {
+      return a < b ? a + '_' + b : b + '_' + a;
+    }
+
+    function areAcceptedFriends(a, b) {
+      return exists(/databases/$(database)/documents/friendships/$(pairId(a, b))) &&
+             get(/databases/$(database)/documents/friendships/$(pairId(a, b))).data.status == 'accepted';
+    }
+
+    function isValidHandle(h) {
+      return h is string && h.size() >= 3 && h.size() <= 24 && h.matches('^[a-z0-9_]+$');
+    }
+
+    function isValidFriendCode(c) {
+      return c is string && c.size() >= 6 && c.size() <= 10 && c.matches('^[A-Z0-9]+$');
+    }
+
+    function isValidHexColor(c) {
+      return c is string && c.size() >= 7 && c.size() <= 9 && c.matches('^#[0-9A-Fa-f]{6,8}$');
+    }
+
+    // --- ENTITY VALIDATION HELPERS ---
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 200)) &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 50 &&
+             isValidHandle(data.handle) &&
+             data.statusMessage is string && data.statusMessage.size() <= 120 &&
+             isValidHexColor(data.avatarColorHex) &&
+             isValidFriendCode(data.friendCode) &&
+             data.sharingEnabled is bool &&
+             data.batterySharingEnabled is bool &&
+             data.historyEnabled is bool;
+    }
+
+    function isValidPublicProfile(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 50 &&
+             isValidHandle(data.handle) &&
+             data.statusMessage is string && data.statusMessage.size() <= 120 &&
+             isValidHexColor(data.avatarColorHex) &&
+             isValidFriendCode(data.friendCode);
+    }
+
+    function isValidHandleLookup(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             isValidHandle(data.handle) &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 50 &&
+             isValidHexColor(data.avatarColorHex);
+    }
+
+    function isValidCodeLookup(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             isValidFriendCode(data.friendCode) &&
+             isValidHandle(data.handle) &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 50 &&
+             isValidHexColor(data.avatarColorHex);
+    }
+
+    function isValidFriendship(data) {
+      return data.participantUids is list && data.participantUids.size() == 2 &&
+             data.participantUids[0] is string && data.participantUids[1] is string &&
+             data.participantUids[0] < data.participantUids[1] &&
+             data.requesterUid is string && data.requesterUid in data.participantUids &&
+             data.recipientUid is string && data.recipientUid in data.participantUids &&
+             data.requesterUid != data.recipientUid &&
+             data.requesterName is string && data.requesterName.size() >= 1 && data.requesterName.size() <= 50 &&
+             isValidHandle(data.requesterHandle) &&
+             isValidHexColor(data.requesterColor) &&
+             data.recipientName is string && data.recipientName.size() >= 1 && data.recipientName.size() <= 50 &&
+             isValidHandle(data.recipientHandle) &&
+             isValidHexColor(data.recipientColor) &&
+             data.status in ['pending', 'accepted'] &&
+             data.pausedByUids is list && data.pausedByUids.size() <= 2 &&
+             (data.pausedByUids.size() == 0 || data.pausedByUids[0] is string);
+    }
+
+    function isValidSharedLocation(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 50 &&
+             isValidHandle(data.handle) &&
+             isValidHexColor(data.avatarColorHex) &&
+             data.sharingActive is bool &&
+             data.latitude is number && data.latitude >= -90.0 && data.latitude <= 90.0 &&
+             data.longitude is number && data.longitude >= -180.0 && data.longitude <= 180.0 &&
+             data.accuracyMeters is number && data.accuracyMeters >= 0.0 && data.accuracyMeters <= 100000.0 &&
+             (!('batteryLevel' in data) || (data.batteryLevel is int && data.batteryLevel >= 0 && data.batteryLevel <= 100)) &&
+             (!('charging' in data) || data.charging is bool) &&
+             (!('placeLabel' in data) || (data.placeLabel is string && data.placeLabel.size() <= 60));
+    }
+
+    function isValidChat(data) {
+      return data.participantUids is list && data.participantUids.size() == 2 &&
+             data.participantUids[0] is string && data.participantUids[1] is string &&
+             data.participantUids[0] < data.participantUids[1] &&
+             data.lastMessageText is string && data.lastMessageText.size() <= 500 &&
+             data.lastSenderUid is string && data.lastSenderUid in data.participantUids;
+    }
+
+    function isValidMessage(data) {
+      return data.participantUids is list && data.participantUids.size() == 2 &&
+             data.participantUids[0] is string && data.participantUids[1] is string &&
+             data.participantUids[0] < data.participantUids[1] &&
+             data.senderUid is string && data.senderUid in data.participantUids &&
+             data.text is string && data.text.size() >= 1 && data.text.size() <= 500 &&
+             (!('sharedLat' in data) || (data.sharedLat is number && data.sharedLat >= -90.0 && data.sharedLat <= 90.0)) &&
+             (!('sharedLng' in data) || (data.sharedLng is number && data.sharedLng >= -180.0 && data.sharedLng <= 180.0)) &&
+             (!('sharedPlaceName' in data) || (data.sharedPlaceName is string && data.sharedPlaceName.size() <= 60));
+    }
+
+    function isValidLocationHistory(data) {
+      return data.latitude is number && data.latitude >= -90.0 && data.latitude <= 90.0 &&
+             data.longitude is number && data.longitude >= -180.0 && data.longitude <= 180.0 &&
+             data.accuracyMeters is number && data.accuracyMeters >= 0.0 && data.accuracyMeters <= 100000.0;
+    }
+
+    function isValidFavoritePlace(data) {
+      return data.name is string && data.name.size() >= 1 && data.name.size() <= 50 &&
+             data.category in ['home', 'work', 'hangout', 'custom'] &&
+             data.latitude is number && data.latitude >= -90.0 && data.latitude <= 90.0 &&
+             data.longitude is number && data.longitude >= -180.0 && data.longitude <= 180.0 &&
+             data.addressHint is string && data.addressHint.size() <= 100;
+    }
+
+    // --- 1. PRIVATE USER PROFILES & SUBCOLLECTIONS ---
+    match /users/{userId} {
+      allow get, list: if isSignedIn() && request.auth.uid == userId;
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'displayName', 'handle', 'statusMessage', 'avatarColorHex', 'friendCode', 'sharingEnabled', 'batterySharingEnabled', 'historyEnabled', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'email', 'displayName', 'handle', 'statusMessage', 'avatarColorHex', 'friendCode', 'sharingEnabled', 'batterySharingEnabled', 'historyEnabled', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().friendCode == existing().friendCode &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['email', 'displayName', 'handle', 'statusMessage', 'avatarColorHex', 'sharingEnabled', 'batterySharingEnabled', 'historyEnabled', 'updatedAt']);
+
+      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+
+      match /locationHistory/{entryId} {
+        allow get: if isSignedIn() && isValidId(userId) && isValidId(entryId) && request.auth.uid == userId;
+        allow list: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(entryId) &&
+                         request.auth.uid == userId &&
+                         incoming().keys().hasAll(['latitude', 'longitude', 'accuracyMeters', 'recordedAt']) &&
+                         incoming().keys().hasOnly(['latitude', 'longitude', 'accuracyMeters', 'recordedAt']) &&
+                         incoming().recordedAt is timestamp && incoming().recordedAt <= request.time &&
+                         isValidLocationHistory(incoming());
+        allow update: if false;
+        allow delete: if isSignedIn() && isValidId(userId) && isValidId(entryId) && request.auth.uid == userId;
+      }
+
+      match /favoritePlaces/{placeId} {
+        allow get: if isSignedIn() && isValidId(userId) && isValidId(placeId) && request.auth.uid == userId;
+        allow list: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(placeId) &&
+                         request.auth.uid == userId &&
+                         incoming().keys().hasAll(['name', 'category', 'latitude', 'longitude', 'addressHint', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['name', 'category', 'latitude', 'longitude', 'addressHint', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidFavoritePlace(incoming());
+        allow update: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(placeId) &&
+                         request.auth.uid == userId &&
+                         isValidFavoritePlace(incoming()) &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'category', 'latitude', 'longitude', 'addressHint', 'updatedAt']);
+        allow delete: if isSignedIn() && isValidId(userId) && isValidId(placeId) && request.auth.uid == userId;
+      }
+    }
+
+    // --- 2. PUBLIC PROFILE CARDS & EXACT-MATCH LOOKUPS ---
+    match /publicProfiles/{userId} {
+      allow get: if isSignedIn() && isValidId(userId);
+      allow list: if false;
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'displayName', 'handle', 'statusMessage', 'avatarColorHex', 'friendCode', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'displayName', 'handle', 'statusMessage', 'avatarColorHex', 'friendCode', 'updatedAt']) &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidPublicProfile(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       isValidPublicProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().friendCode == existing().friendCode &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'handle', 'statusMessage', 'avatarColorHex', 'updatedAt']);
+
+      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+    }
+
+    match /handleLookup/{handle} {
+      allow get: if isSignedIn() && isValidId(handle);
+      allow list: if false;
+
+      allow create: if isSignedIn() &&
+                       isValidId(handle) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().handle == handle &&
+                       incoming().keys().hasAll(['userId', 'handle', 'displayName', 'avatarColorHex', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'handle', 'displayName', 'avatarColorHex', 'updatedAt']) &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidHandleLookup(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(handle) &&
+                       existing().userId == request.auth.uid &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().handle == handle &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidHandleLookup(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'avatarColorHex', 'updatedAt']);
+
+      allow delete: if isSignedIn() && isValidId(handle) && existing().userId == request.auth.uid;
+    }
+
+    match /friendCodeLookup/{code} {
+      allow get: if isSignedIn() && isValidId(code);
+      allow list: if false;
+
+      allow create: if isSignedIn() &&
+                       isValidId(code) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().friendCode == code &&
+                       incoming().keys().hasAll(['userId', 'friendCode', 'handle', 'displayName', 'avatarColorHex', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'friendCode', 'handle', 'displayName', 'avatarColorHex', 'updatedAt']) &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidCodeLookup(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(code) &&
+                       existing().userId == request.auth.uid &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().friendCode == code &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidCodeLookup(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['handle', 'displayName', 'avatarColorHex', 'updatedAt']);
+
+      allow delete: if isSignedIn() && isValidId(code) && existing().userId == request.auth.uid;
+    }
+
+    // --- 3. FRIENDSHIPS ---
+    match /friendships/{friendshipId} {
+      allow get: if isSignedIn() && isValidId(friendshipId) && request.auth.uid in existing().participantUids;
+      allow list: if isSignedIn() && request.auth.uid in resource.data.participantUids;
+
+      allow create: if isSignedIn() &&
+                       isValidId(friendshipId) &&
+                       isValidFriendship(incoming()) &&
+                       incoming().requesterUid == request.auth.uid &&
+                       incoming().recipientUid != request.auth.uid &&
+                       friendshipId == pairId(incoming().requesterUid, incoming().recipientUid) &&
+                       incoming().status == 'pending' &&
+                       incoming().pausedByUids.size() == 0 &&
+                       incoming().keys().hasAll(['participantUids', 'requesterUid', 'recipientUid', 'requesterName', 'requesterHandle', 'requesterColor', 'recipientName', 'recipientHandle', 'recipientColor', 'status', 'pausedByUids', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['participantUids', 'requesterUid', 'recipientUid', 'requesterName', 'requesterHandle', 'requesterColor', 'recipientName', 'recipientHandle', 'recipientColor', 'status', 'pausedByUids', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+
+      allow update: if isSignedIn() &&
+                       isValidId(friendshipId) &&
+                       isValidFriendship(incoming()) &&
+                       request.auth.uid in existing().participantUids &&
+                       incoming().participantUids == existing().participantUids &&
+                       incoming().requesterUid == existing().requesterUid &&
+                       incoming().recipientUid == existing().recipientUid &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       (
+                         (existing().status == 'pending' &&
+                          request.auth.uid == existing().recipientUid &&
+                          incoming().status == 'accepted' &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
+                         (existing().status == 'accepted' &&
+                          incoming().status == 'accepted' &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['pausedByUids', 'updatedAt']))
+                       );
+
+      allow delete: if isSignedIn() && isValidId(friendshipId) && request.auth.uid in existing().participantUids;
+    }
+
+    // --- 4. OPT-IN SHARED LOCATIONS ---
+    match /sharedLocations/{userId} {
+      allow get: if isSignedIn() &&
+                    isValidId(userId) &&
+                    (request.auth.uid == userId ||
+                     (existing().sharingActive == true &&
+                      areAcceptedFriends(request.auth.uid, userId) &&
+                      !(userId in get(/databases/$(database)/documents/friendships/$(pairId(request.auth.uid, userId))).data.pausedByUids)));
+
+      allow list: if false;
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'displayName', 'handle', 'avatarColorHex', 'sharingActive', 'latitude', 'longitude', 'accuracyMeters', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'displayName', 'handle', 'avatarColorHex', 'sharingActive', 'latitude', 'longitude', 'accuracyMeters', 'batteryLevel', 'charging', 'placeLabel', 'updatedAt']) &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidSharedLocation(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       isValidSharedLocation(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().keys().hasOnly(['userId', 'displayName', 'handle', 'avatarColorHex', 'sharingActive', 'latitude', 'longitude', 'accuracyMeters', 'batteryLevel', 'charging', 'placeLabel', 'updatedAt']) &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+
+      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+    }
+
+    // --- 5. PRIVATE 1-TO-1 MESSAGING ---
+    match /chats/{chatId} {
+      allow get: if isSignedIn() && isValidId(chatId) && request.auth.uid in existing().participantUids;
+      allow list: if isSignedIn() && request.auth.uid in resource.data.participantUids;
+
+      allow create, update: if isSignedIn() &&
+                               isValidId(chatId) &&
+                               isValidChat(incoming()) &&
+                               request.auth.uid in incoming().participantUids &&
+                               incoming().lastSenderUid == request.auth.uid &&
+                               chatId == pairId(incoming().participantUids[0], incoming().participantUids[1]) &&
+                               areAcceptedFriends(incoming().participantUids[0], incoming().participantUids[1]) &&
+                               incoming().keys().hasAll(['participantUids', 'lastMessageText', 'lastSenderUid', 'updatedAt']) &&
+                               incoming().keys().hasOnly(['participantUids', 'lastMessageText', 'lastSenderUid', 'updatedAt']) &&
+                               incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+
+      allow delete: if isSignedIn() && isValidId(chatId) && request.auth.uid in existing().participantUids;
+
+      match /messages/{messageId} {
+        allow get: if isSignedIn() && isValidId(chatId) && isValidId(messageId) && request.auth.uid in existing().participantUids;
+        allow list: if isSignedIn() && request.auth.uid in resource.data.participantUids;
+
+        allow create: if isSignedIn() &&
+                         isValidId(chatId) &&
+                         isValidId(messageId) &&
+                         isValidMessage(incoming()) &&
+                         incoming().senderUid == request.auth.uid &&
+                         request.auth.uid in incoming().participantUids &&
+                         chatId == pairId(incoming().participantUids[0], incoming().participantUids[1]) &&
+                         areAcceptedFriends(incoming().participantUids[0], incoming().participantUids[1]) &&
+                         incoming().keys().hasAll(['participantUids', 'senderUid', 'text', 'createdAt']) &&
+                         incoming().keys().hasOnly(['participantUids', 'senderUid', 'text', 'sharedLat', 'sharedLng', 'sharedPlaceName', 'createdAt']) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time;
+
+        allow update: if false;
+        allow delete: if isSignedIn() && isValidId(chatId) && isValidId(messageId) && request.auth.uid == existing().senderUid;
+      }
+    }
+  }
+}
